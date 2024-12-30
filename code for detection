@@ -1,0 +1,69 @@
+#include <iostream>
+#include <unordered_map>
+#include <cstdlib> // For malloc and free
+#include <new>     // For overriding new/delete operators
+#include <cstdio>  // For size_t
+
+// Global data structure to track allocations
+std::unordered_map<void*, size_t> memoryMap;
+
+// Overload global new operator
+void* operator new(size_t size) {
+    void* ptr = malloc(size);
+    memoryMap[ptr] = size;
+    std::cout << "Allocated " << size << " bytes at " << ptr << std::endl;
+    return ptr;
+}
+
+// Overload global delete operator
+void operator delete(void* ptr) noexcept {
+    if (memoryMap.find(ptr) != memoryMap.end()) {
+        std::cout << "Deallocated " << memoryMap[ptr] << " bytes from " << ptr << std::endl;
+        memoryMap.erase(ptr);
+        free(ptr);
+    } else {
+        std::cerr << "Attempt to delete untracked pointer " << ptr << std::endl;
+    }
+}
+
+// Function to detect and report memory leaks
+void reportMemoryLeaks() {
+    if (memoryMap.empty()) {
+        std::cout << "No memory leaks detected!" << std::endl;
+    } else {
+        std::cout << "Memory leaks detected:" << std::endl;
+        for (const auto& entry : memoryMap) {
+            std::cout << "Leak: " << entry.second << " bytes at " << entry.first << std::endl;
+        }
+    }
+}
+
+// Example class using dynamic memory
+class TestClass {
+public:
+    int* data;
+    TestClass() {
+        data = new int[10]; // Allocating memory dynamically
+    }
+    ~TestClass() {
+        delete[] data; // Freeing allocated memory
+    }
+};
+
+int main() {
+    // Test cases
+    {
+        TestClass* obj = new TestClass();
+        delete obj; // This should not result in a memory leak
+    }
+
+    {
+        TestClass* obj = new TestClass();
+        // No delete here, this will cause a memory leak
+    }
+
+    // Check for memory leaks at the end
+    reportMemoryLeaks();
+
+    return 0;
+}
